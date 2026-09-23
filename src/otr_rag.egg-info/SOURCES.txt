@@ -1,0 +1,16 @@
+README.md
+pyproject.toml
+src/otr_rag/__init__.py
+src/otr_rag/cleaning.py
+src/otr_rag/config.py
+src/otr_rag/layout.py
+src/otr_rag/patterns.py
+src/otr_rag/rawmd.py
+src/otr_rag.egg-info/PKG-INFO
+src/otr_rag.egg-info/SOURCES.txt
+src/otr_rag.egg-info/dependency_links.txt
+src/otr_rag.egg-info/requires.txt
+src/otr_rag.egg-info/top_level.txt
+tests/test_cleaning.py
+tests/test_patterns.py
+tests/test_pipeline.py

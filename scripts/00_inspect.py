@@ -1,20 +1,3 @@
-#!/usr/bin/env python3
-"""Étape 0 - Diagnostic de chaque PDF, AVANT extraction.
-
-Il répond aux questions dont dépendent les réglages de 01_extract :
-  * le PDF a-t-il un vrai texte (pas un scan) ? une ou deux colonnes ?
-  * où est le numéro de page (haut / bas, à quelle hauteur) ?
-  * les notes de bas de page sont-elles dans une police plus petite ?
-  * les appels de note sont-ils des exposants détectables ?
-  * y a-t-il un sommaire à ignorer ? plusieurs codes dans un même PDF ?
-  * quels titres / articles / rescrits sont détectés, et la numérotation est-elle continue ?
-
-Usage :
-    python scripts/00_inspect.py                       # tous les documents du manifest
-    python scripts/00_inspect.py --doc cgi_2023        # un seul
-    python scripts/00_inspect.py --doc cgi_2023 --dump 1,12   # + liste des lignes des pages 1 et 12
-Le rapport est écrit dans data/inspect/<doc_id>.md : colle-le moi tel quel.
-"""
 from __future__ import annotations
 
 import argparse
