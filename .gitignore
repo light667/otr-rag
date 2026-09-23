@@ -1,0 +1,7 @@
+data/raw/*.pdf
+data/interim/
+data/inspect/
+data/reports/
+__pycache__/
+.pytest_cache/
+.venv/

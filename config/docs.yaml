@@ -1,0 +1,47 @@
+raw_dir: data/raw
+interim_dir: data/interim
+inspect_dir: data/inspect
+reports_dir: data/reports
+
+docs:
+  - doc_id: cgi_2023
+    file: CODE-GENERAL-DES-IMPOTS-MAJ-2023.pdf
+    file_glob: "*impots*2023*"
+    doc_type: code
+    code: CGI
+    version_year: 2023
+    published: "2023-03-10"
+    source_url: https://www.otr.tg/index.php/fr/impots/reglementations-fiscales/code-general-des-impots/352-code-general-des-impots-mise-a-jour-2023.html
+    
+  - doc_id: cgi_lpf_2025
+    file: CODE-GENERAL-DES-IMPOTS-ET-LIVRE-DES-PROCEDURES-FISCALES-OTR-2025.pdf
+    file_glob: "*procedures*2025*"
+    doc_type: code
+    version_year: 2025
+    published: "2025-09-18"
+    source_url: https://www.otr.tg/index.php/fr/impots/reglementations-fiscales/code-general-des-impots/600-code-general-des-impots-livre-des-procedures-fiscales-mis-a-jour-2025.html
+    
+  - doc_id: rescrits_2025
+    file: RESCRITS-FISCAUX.pdf
+    file_glob: "*rescrit*"
+    doc_type: rescrits
+    published: "2025-02-03"
+    modified: "2025-09-23"
+    source_url: https://www.otr.tg/index.php/fr/documentation/sur-les-impots/code-general-des-impots/602-rescrits-fiscaux.html
+    
+  - doc_id: cahier_fiscal_2025
+    file: CAHIER-FISCAL-2025.pdf
+    file_glob: "*cahier*2025*"
+    doc_type: generic
+    version_year: 2025
+    published: "2025-01-20"
+    source_url: https://www.otr.tg/index.php/fr/impots/reglementations-fiscales/code-general-des-impots.html
+
+  - doc_id: cahier_fiscal_2026
+    file: CAHIER-FISCAL-2026.pdf
+    file_glob: "*cahier*2026*"
+    doc_type: generic
+    version_year: 2026
+    published: "2026-07-23"
+    source_url: https://www.otr.tg/index.php/fr/impots/reglementations-fiscales/code-general-des-impots.html
+    
