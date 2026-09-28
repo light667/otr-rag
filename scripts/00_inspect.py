@@ -1,3 +1,20 @@
+
+"""Étape 0 - Diagnostic de chaque PDF, AVANT extraction.
+
+Il répond aux questions dont dépendent les réglages de 01_extract :
+  * le PDF a-t-il un vrai texte (pas un scan) ? une ou deux colonnes ?
+  * où est le numéro de page (haut / bas, à quelle hauteur) ?
+  * les notes de bas de page sont-elles dans une police plus petite ?
+  * les appels de note sont-ils des exposants détectables ?
+  * y a-t-il un sommaire à ignorer ? plusieurs codes dans un même PDF ?
+  * quels titres / articles / rescrits sont détectés, et la numérotation est-elle continue ?
+
+Usage :
+    python scripts/00_inspect.py                       # tous les documents du manifest
+    python scripts/00_inspect.py --doc cgi_2023        # un seul
+    python scripts/00_inspect.py --doc cgi_2023 --dump 1,12   # + liste des lignes des pages 1 et 12
+Le rapport est écrit dans data/inspect/<doc_id>.md : colle-le moi tel quel.
+"""
 from __future__ import annotations
 
 import argparse
@@ -11,11 +28,11 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / "src"))
 
-import pymupdf  # noqa: E402
+import pymupdf  
 
-from otr_rag.config import load_manifest, resolve_pdf, select_docs  # noqa: E402
-from otr_rag.layout import FN_PLACEHOLDER, LayoutCfg, page_lines, page_tables, scan_document  # noqa: E402
-from otr_rag.patterns import (ARTICLE_START, DIGITS_ONLY, GLUED_MARKER, HEADING_PATTERNS,  # noqa: E402
+from otr_rag.config import load_manifest, resolve_pdf, select_docs  
+from otr_rag.layout import FN_PLACEHOLDER, LayoutCfg, page_lines, page_tables, scan_document  
+from otr_rag.patterns import (ARTICLE_START, DIGITS_ONLY, GLUED_MARKER, HEADING_PATTERNS,  
                               RESCRIT_START, article_id)
 
 TOC_LEADER = re.compile(r"(\.{4,}|…{2,}|(?:\s\.){4,})\s*\d{1,4}\s*$")
@@ -44,13 +61,11 @@ def inspect_doc(entry: dict, manifest: dict, dump_pages: set[int]) -> str:
     meta = {k: v for k, v in (doc.metadata or {}).items() if v}
     w(f"- métadonnées PDF : {meta or 'aucune'}")
 
-    # ---- texte natif ? -------------------------------------------------------
     chars = [len(doc[i].get_text().strip()) for i in range(min(n, 30))]
     avg = statistics.mean(chars) if chars else 0
     w(f"- caractères par page (30 premières) : moyenne {avg:.0f}, min {min(chars) if chars else 0}"
       + ("  ⚠ **très faible : PDF probablement scanné (OCR nécessaire)**" if avg < 200 else "  ✓ texte natif"))
 
-    # ---- statistiques globales ----------------------------------------------
     stats = scan_document(doc, cfg)
     top_sizes = sorted(stats.size_hist.items(), key=lambda kv: -kv[1])[:6]
     total = sum(stats.size_hist.values()) or 1
@@ -61,8 +76,7 @@ def inspect_doc(entry: dict, manifest: dict, dump_pages: set[int]) -> str:
       f"interligne médian : {stats.median_leading:.1f} pt")
     w(f"- lignes répétées dans les marges (en-têtes/pieds détectés) : {sorted(stats.repeated) or 'aucune'}")
 
-    # ---- balayage page par page ----------------------------------------------
-    digits_pos = []            # (page, y%, x%)
+    digits_pos = []            
     foot_pages = Counter()
     foot_samples = []
     sup_marks = 0
@@ -132,7 +146,6 @@ def inspect_doc(entry: dict, manifest: dict, dump_pages: set[int]) -> str:
                 dump_out.append(f"| {ln.cy/H:.0%} | {ln.x0/W:.0%} | {ln.size} | {'B' if ln.bold else ''} | "
                                 f"{ln.text[:110].replace('|', '¦')} |")
 
-    # ---- numéro de page ---------------------------------------------------------
     w("\n## Numéro de page")
     if digits_pos:
         top = [d for d in digits_pos if d[1] < 0.5]
@@ -150,7 +163,6 @@ def inspect_doc(entry: dict, manifest: dict, dump_pages: set[int]) -> str:
     else:
         w("- aucune ligne 'chiffres seuls' trouvée : le numéro de page est peut-être dans une autre forme (ex. « Page 3 »).")
 
-    # ---- notes de bas de page ----------------------------------------------------
     w("\n## Notes de bas de page")
     w(f"- lignes en petite police (≤ {cfg.footnote_size_ratio:.0%} du corps) dans le bas de page : "
       f"{sum(foot_pages.values())} sur {len(foot_pages)} pages")
@@ -165,7 +177,6 @@ def inspect_doc(entry: dict, manifest: dict, dump_pages: set[int]) -> str:
         w("- ⚠ ni notes en petite police ni exposants : soit ce document n'a pas de notes, soit la mise en page "
           "est différente de ce qu'on attend. Vérifie avec --dump sur une page où le CGI cite une loi de finances.")
 
-    # ---- colonnes ------------------------------------------------------------------
     w("\n## Mise en page")
     frac = x_right / x_total if x_total else 0
     w(f"- lignes de corps commençant dans la moitié droite de la page : {frac:.0%}"
@@ -174,7 +185,6 @@ def inspect_doc(entry: dict, manifest: dict, dump_pages: set[int]) -> str:
         w(f"- interlignes supérieurs à {cfg.gap_factor}× la médiane : {gap_big}/{gap_all} ({gap_big/gap_all:.0%}) "
           "→ ce sont les sauts de paragraphe visibles ; 0 % veut dire que les paragraphes ne sont pas séparés dans le PDF")
 
-    # ---- structure ---------------------------------------------------------------------
     if entry["doc_type"] in {"code", "generic"}:
         w("\n## Structure détectée")
         w(f"- titres : {dict(headings) or 'aucun'}")
@@ -211,7 +221,6 @@ def inspect_doc(entry: dict, manifest: dict, dump_pages: set[int]) -> str:
         if nums and nums != list(range(nums[0], nums[0] + len(nums))):
             w(f"  ⚠ numérotation non continue : {nums}")
 
-    # ---- tableaux --------------------------------------------------------------------------
     w("\n## Tableaux (détection PyMuPDF)")
     for i in table_pages:
         try:

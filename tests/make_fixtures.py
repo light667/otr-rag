@@ -140,6 +140,63 @@ def build_code_pdf(path, superscript: bool = True, small_footnote: bool = True) 
     doc.close()
 
 
+def build_cahier_pdf(path) -> None:
+    """Reproduit fidèlement les pages 1, 2 et 3 du CAHIER-FISCAL-2025.pdf réel :
+    couverture (63pt/24pt), préambule en 12pt (plus petit que le corps 14pt, mais
+    ce n'est PAS une note), titre de section sur 3 lignes en 30pt, deux mesures
+    sous-titrées en gras 14pt, et le pied de page répété avec le numéro collé."""
+    doc = pymupdf.open()
+
+    p = doc.new_page(width=W + 195, height=H + 242)  # ~595x842 (A4), comme le vrai PDF
+    p.insert_text((100, 390), "CAHIER FISCAL", fontsize=63, fontname="hebo")
+    p.insert_text((100, 440), "PRINCIPALES DISPOSITIONS", fontsize=24, fontname="hebo")
+    p.insert_text((100, 465), "DE LA LOI DE FINANCES 2025", fontsize=24, fontname="hebo")
+
+    p = doc.new_page(width=W + 195, height=H + 242)
+    y = 390
+    for line in ["Adoptée par la représentation nationale le 27 décembre",
+                 "2024 et promulguée par le Président de la République",
+                 "le 30 décembre 2024, la loi n° 2024-007 portant loi de",
+                 "finances, exercice 2025, contient, des mesures fiscales et",
+                 "douanières nouvelles, et des mesures modifiant le Code",
+                 "général des impôts et le Livre des procédures fiscales."]:
+        p.insert_text((150, y), line, fontsize=12, fontname="helv")
+        y += 17
+
+    p = doc.new_page(width=W + 195, height=H + 242)
+    y = 130
+    for line in ["LES MESURES NOUVELLES", "CONTENUES DANS LE CORPS", "DE LA LOI"]:
+        p.insert_text((65, y), line, fontsize=30, fontname="hebo")
+        y += 34
+    y = 365
+    p.insert_text((65, y), "Les mesures nouvelles adoptées sont au nombre de deux à savoir :",
+                  fontsize=14, fontname="helv")
+    y += 34
+    p.insert_text((65, y), "Article 15 de la LOFI :", fontsize=14, fontname="hebo")
+    y += 34
+    for line in ["A compter du 1er janvier au 31 décembre 2025, un taux réduit des droits d'accises",
+                 "sur certains produits naturels transformés localement par des petites et moyennes",
+                 "entreprises et industries (PME/PMI) et certifiés par les organismes d'Etat dûment",
+                 "habilités est appliqué. Un acte règlementaire précise les modalités pratiques de",
+                 "l'avantage fiscal accordé."]:
+        p.insert_text((65, y), line, fontsize=14, fontname="helv")
+        y += 17
+    y += 17
+    p.insert_text((65, y), "Article 16 de la LOFI :", fontsize=14, fontname="hebo")
+    y += 34
+    for line in ["Réduction de 50% sur le montant du droit de douane liquidé sur le gasoil destiné",
+                 "exclusivement aux machines et aux engins mobiles non routiers des industries",
+                 "remplissant un certain nombre de conditions. Mesure valable du 1er janvier au 31",
+                 "décembre 2025."]:
+        p.insert_text((65, y), line, fontsize=14, fontname="helv")
+        y += 17
+    # pied de page répété avec le numéro de page collé, sans espace ("...EXERCICE 20253")
+    p.insert_text((230, 818), "MESURES PHARES DE LA LOI DE FINANCES, EXERCICE 20253",
+                  fontsize=10, fontname="helv")
+    doc.save(path)
+    doc.close()
+
+
 def build_rescrits_pdf(path) -> None:
     doc = pymupdf.open()
     p = doc.new_page(width=W, height=H)

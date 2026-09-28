@@ -58,9 +58,7 @@ class CleanReport:
                 lst.append(sample)
 
 
-# --------------------------------------------------------------------------
 # Caractères
-# --------------------------------------------------------------------------
 def normalize_chars(s: str, rep: CleanReport) -> str:
     s = unicodedata.normalize("NFC", s)
     for k, v in LIGATURES.items():
@@ -68,8 +66,8 @@ def normalize_chars(s: str, rep: CleanReport) -> str:
             s = s.replace(k, v)
             rep.note("ligature_fixed")
     s = s.translate(ZERO_WIDTH)
-    s = s.replace("\u00ad", "")                               # trait d'union conditionnel
-    s = re.sub(r"[\u00a0\u202f\u2009\u2007]", " ", s)         # espaces insécables -> espace
+    s = s.replace("\u00ad", "")                               
+    s = re.sub(r"[\u00a0\u202f\u2009\u2007]", " ", s)         
     s = s.replace("’", "'").replace("‘", "'").replace("ʼ", "'")
     s = re.sub(r"[ \t]+", " ", s)
     if "\ufffd" in s:
@@ -77,9 +75,7 @@ def normalize_chars(s: str, rep: CleanReport) -> str:
     return s.rstrip()
 
 
-# --------------------------------------------------------------------------
 # Jonction de deux lignes (césures)
-# --------------------------------------------------------------------------
 def join_pair(acc: str, line: str, rep: CleanReport) -> str:
     if acc.endswith("-") and len(acc) > 1 and acc[-2] != " " and (acc[-2].isalnum()):
         left = acc[:-1]
@@ -136,9 +132,7 @@ def join_block(items: list[tuple[str, str]], rep: CleanReport) -> tuple[str, lis
     return acc, held
 
 
-# --------------------------------------------------------------------------
 # Texte : corrections de fond
-# --------------------------------------------------------------------------
 def fix_text(s: str, rep: CleanReport) -> str:
     for pat, repl in KNOWN_GLUED:
         s, n = pat.subn(repl, s)
@@ -155,9 +149,7 @@ def fix_text(s: str, rep: CleanReport) -> str:
     return re.sub(r" {2,}", " ", s).strip()
 
 
-# --------------------------------------------------------------------------
 # Barème -> tableau Markdown
-# --------------------------------------------------------------------------
 def bareme_table(rows: list[str], rep: CleanReport) -> list[str]:
     def clean_num(x: str) -> str:
         return re.sub(r"\s+", " ", x).strip()
@@ -179,9 +171,7 @@ def _is_bareme(line: str) -> bool:
     return bool(BAREME_ROW.match(line) or BAREME_LAST.match(line))
 
 
-# --------------------------------------------------------------------------
 # Reflow
-# --------------------------------------------------------------------------
 def reflow(lines: list[str], p95_len: float, rep: CleanReport) -> list[str]:
     out: list[str] = []
     buf: list[tuple[str, str]] = []   # ('t'|'pg', valeur)

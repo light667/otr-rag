@@ -1,4 +1,3 @@
-#!/usr/bin/env python3
 """Étape 1 - PDF -> Markdown BRUT (structure conservée, bruit de page retiré).
 
 La stratégie dépend de la nature du document (`doc_type` dans config/docs.yaml) :
@@ -27,12 +26,12 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / "src"))
 
-import pymupdf  # noqa: E402
-import yaml  # noqa: E402
+import pymupdf  
+import yaml  
 
-from otr_rag.config import load_manifest, resolve_pdf, select_docs  # noqa: E402
-from otr_rag.layout import LayoutCfg, extract_pages, scan_document  # noqa: E402
-from otr_rag.rawmd import BuildMeta, build_code_md, build_generic_md, build_rescrits_md  # noqa: E402
+from otr_rag.config import load_manifest, resolve_pdf, select_docs  
+from otr_rag.layout import LayoutCfg, extract_pages, scan_document  
+from otr_rag.rawmd import BuildMeta, build_code_md, build_generic_md, build_rescrits_md  
 
 
 def front_matter(entry: dict, code: str | None, pdf_name: str, first: int, last: int, stats) -> str:
@@ -67,7 +66,6 @@ def extract_entry(entry: dict, manifest: dict) -> None:
     print(f"\n=== {entry['doc_id']} ({pdf.name}, {n} pages) - stratégie : {entry['doc_type']}")
     print(f"    corps {stats.body_size} pt ; en-têtes répétés retirés : {sorted(stats.repeated) or 'aucun'}")
 
-    # découpage en sous-documents (ex. CGI + LPF dans un même PDF)
     subdocs = entry.get("subdocs") or [{"code": entry.get("code"), "first_page": 1}]
     subdocs = [s for s in subdocs if s.get("first_page")]
     bounds = []

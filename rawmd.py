@@ -83,6 +83,14 @@ class FootnoteResolver:
         self.counter = 0
         self.pending: list[tuple[str, str]] = []
         self.meta = meta
+        # Repli document entier : sur ces documents, la numérotation des notes est CONTINUE
+        # sur tout le texte (fn:1, fn:2, fn:3... n'importe où, jamais remise à zéro par page).
+        # Un numéro donné n'existe donc qu'à UN seul endroit ; si la page ±1 ne suffit pas
+        # (repagination, article très long), on peut chercher sans risque dans tout le document.
+        self.by_number: dict[int, list[int]] = {}
+        for pg in sorted(self.defs):
+            for n in self.defs[pg]:
+                self.by_number.setdefault(n, []).append(pg)
 
     def resolve(self, text: str, page: int) -> str:
         def repl(m: re.Match) -> str:
@@ -90,14 +98,20 @@ class FootnoteResolver:
             for p in (page, page + 1, page - 1):
                 d = self.defs.get(p, {})
                 if n in d and (p, n) not in self.used:
-                    self.used.add((p, n))
-                    self.counter += 1
-                    fid = f"fn{self.counter}"
-                    self.pending.append((fid, d[n]))
-                    return f"[^{fid}]"
+                    return self._take(p, n)
+            for p in self.by_number.get(n, []):
+                if (p, n) not in self.used:
+                    return self._take(p, n)
             self.meta.unresolved_markers.append({"page": page, "marker": n})
             return ""
         return FN_PLACEHOLDER.sub(repl, text)
+
+    def _take(self, page: int, n: int) -> str:
+        self.used.add((page, n))
+        self.counter += 1
+        fid = f"fn{self.counter}"
+        self.pending.append((fid, self.defs[page][n]))
+        return f"[^{fid}]"
 
     def flush(self, out: list[str]) -> None:
         if not self.pending:
@@ -357,7 +371,9 @@ def build_generic_md(doc: pymupdf.Document, pages: list[PageData], stats: DocSta
                 if j - i > 1:
                     meta.multiline_headings.append({"page": l.page, "text": f"{parts[0]} … ({j - i} lignes)"})
                 fn.flush(out)
-                out += ["", f"{'#' * level_of[round(l.size, 1)]} {' '.join(parts)}", ""]
+                lvl = level_of[round(l.size, 1)]
+                meta.headings.append({"level": lvl, "kind": f"h{lvl}", "title": " ".join(parts), "pdf_page": l.page})
+                out += ["", f"{'#' * lvl} {' '.join(parts)}", ""]
                 i = j
                 continue
 

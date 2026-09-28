@@ -1,3 +1,4 @@
+
 raw_dir: data/raw
 interim_dir: data/interim
 inspect_dir: data/inspect
@@ -12,7 +13,10 @@ docs:
     version_year: 2023
     published: "2023-03-10"
     source_url: https://www.otr.tg/index.php/fr/impots/reglementations-fiscales/code-general-des-impots/352-code-general-des-impots-mise-a-jour-2023.html
-    
+    layout:
+      drop_regex: ['^CODE G[ÉE]N[ÉE]RAL DES IMP[ÔO]TS$']
+      top_zone: 0.10
+
   - doc_id: cgi_lpf_2025
     file: CODE-GENERAL-DES-IMPOTS-ET-LIVRE-DES-PROCEDURES-FISCALES-OTR-2025.pdf
     file_glob: "*procedures*2025*"
@@ -20,7 +24,13 @@ docs:
     version_year: 2025
     published: "2025-09-18"
     source_url: https://www.otr.tg/index.php/fr/impots/reglementations-fiscales/code-general-des-impots/600-code-general-des-impots-livre-des-procedures-fiscales-mis-a-jour-2025.html
-    
+    subdocs:
+      - {code: CGI, first_page: 1}
+      - {code: LPF, first_page: 213}
+    layout:
+      top_zone: 0.10   
+      skip_pages: [2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14]
+
   - doc_id: rescrits_2025
     file: RESCRITS-FISCAUX.pdf
     file_glob: "*rescrit*"
@@ -28,7 +38,8 @@ docs:
     published: "2025-02-03"
     modified: "2025-09-23"
     source_url: https://www.otr.tg/index.php/fr/documentation/sur-les-impots/code-general-des-impots/602-rescrits-fiscaux.html
-    
+    layout: {}
+
   - doc_id: cahier_fiscal_2025
     file: CAHIER-FISCAL-2025.pdf
     file_glob: "*cahier*2025*"
@@ -36,6 +47,9 @@ docs:
     version_year: 2025
     published: "2025-01-20"
     source_url: https://www.otr.tg/index.php/fr/impots/reglementations-fiscales/code-general-des-impots.html
+    layout:
+      footnote_enabled: false
+      drop_regex: ['^MESURES PHARES DE LA LOI DE FINANCES,?\s*EXERCICE\s*2025\d*$']
 
   - doc_id: cahier_fiscal_2026
     file: CAHIER-FISCAL-2026.pdf
@@ -44,4 +58,5 @@ docs:
     version_year: 2026
     published: "2026-07-23"
     source_url: https://www.otr.tg/index.php/fr/impots/reglementations-fiscales/code-general-des-impots.html
-    
+    layout:
+      footnote_enabled: false

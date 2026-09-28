@@ -1,7 +1,8 @@
 import pytest
 
 from otr_rag.patterns import (ARTICLE_START, BAREME_LAST, BAREME_ROW, GLUED_MARKER, HEADING_PATTERNS,
-                              LIST_START, RESCRIT_START, SUBHEADING, article_id, extract_refs)
+                              LIST_START, RESCRIT_START, SUBHEADING, article_id, article_sort_key,
+                              extract_refs)
 
 
 @pytest.mark.parametrize("line,aid", [
@@ -86,6 +87,14 @@ def test_list_start():
         assert LIST_START.match(l), l
     for l in ["31 décembre de l'année", "revenus nets"]:
         assert not LIST_START.match(l), l
+
+
+def test_article_sort_key_uses_legal_order_not_alphabetical():
+    """Régression cgi_lpf_2025 : 171quater triait AVANT 171ter (comparaison alphabétique
+    de texte : 'q' < 't'), déclenchant une fausse alerte 'ordre non croissant'."""
+    ids = ["171", "171bis", "171quater", "171ter", "170", "172"]
+    ordered = sorted(ids, key=article_sort_key)
+    assert ordered == ["170", "171", "171bis", "171ter", "171quater", "172"]
 
 
 def test_extract_refs():

@@ -35,7 +35,7 @@ class LayoutCfg:
     top_zone: float = 0.08            # fraction de la hauteur : zone d'en-tête
     bottom_zone: float = 0.08         # fraction de la hauteur : zone de pied de page
     footnote_size_ratio: float = 0.92  # taille <= ratio * corps  => note de bas de page
-    footnote_min_y: float = 0.45      # une note se trouve dans le bas de la page
+    footnote_min_y: float = 0.80      # une note se trouve dans le bas de la page (réel : ~92%)
     repeat_threshold: float = 0.25    # texte répété dans les marges sur >=25 % des pages
     body_size: float | None = None    # forcer la taille du corps si la détection se trompe
     drop_regex: list[str] = field(default_factory=list)  # lignes à jeter (ex. titre de couverture)
