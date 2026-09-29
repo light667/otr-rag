@@ -35,7 +35,7 @@ class LayoutCfg:
     top_zone: float = 0.08            # fraction de la hauteur : zone d'en-tête
     bottom_zone: float = 0.08         # fraction de la hauteur : zone de pied de page
     footnote_size_ratio: float = 0.92  # taille <= ratio * corps  => note de bas de page
-    footnote_min_y: float = 0.45      # une note se trouve dans le bas de la page
+    footnote_min_y: float = 0.80      # une note se trouve dans le bas de la page (réel : ~92%)
     repeat_threshold: float = 0.25    # texte répété dans les marges sur >=25 % des pages
     body_size: float | None = None    # forcer la taille du corps si la détection se trompe
     drop_regex: list[str] = field(default_factory=list)  # lignes à jeter (ex. titre de couverture)
@@ -112,6 +112,7 @@ class PageData:
     footnotes: dict[int, str]
     dropped: list[tuple[str, str]]
     footnote_method: str = "none"  # "geometry" | "text" | "none"
+    reclaimed: int = 0             # lignes en petite police remises dans le corps (pas des notes)
 
 
 @dataclass
@@ -170,22 +171,36 @@ def merge_visual_lines(lines: list[RawLine]) -> list[RawLine]:
 
 
 def render_line(rl: RawLine) -> tuple[str, float, bool]:
-    """Texte de la ligne avec marqueurs {{fn:N}} pour les exposants numériques."""
+    """Texte de la ligne avec marqueurs {{fn:N}} pour les exposants numériques.
+
+    Deux runs de texte adjacents (changement de span PDF) sont parfois séparés par un espace
+    purement géométrique (ajustement de justification) sans caractère espace dans le contenu :
+    on le restitue en comparant le bord droit d'un span au bord gauche du suivant.
+    """
     spans = sorted(rl.spans, key=lambda s: s.x0)
     max_size = max(s.size for s in spans)
     parts: list[str] = []
     big_chars = big_size = bold_chars = total = 0
     sizes = Counter()
+    prev_x1: float | None = None
     for s in spans:
         st = s.text.strip()
         small = s.sup or s.size < 0.85 * max_size
         if small and st.isdigit() and len(st) <= 2:
             parts.append("{{fn:%s}}" % st)
+            prev_x1 = s.x1
             continue
         if small and st.lower() in ORDINAL_SUFFIXES:
             parts.append(st)  # "1" + "er" -> "1er"
+            prev_x1 = s.x1
             continue
-        parts.append(s.text)
+        text_piece = s.text
+        if (prev_x1 is not None and s.x0 - prev_x1 > 0.12 * s.size
+                and not (parts and parts[-1][-1:] in " -'’")
+                and not text_piece[:1] in " ,.;:)”»'’"):
+            parts.append(" ")
+        parts.append(text_piece)
+        prev_x1 = s.x1
         n = len(s.text.strip())
         total += n
         bold_chars += n if s.bold else 0
@@ -248,6 +263,27 @@ def scan_document(doc: pymupdf.Document, cfg: LayoutCfg) -> DocStats:
 # --------------------------------------------------------------------------
 # Passe 2 : une page
 # --------------------------------------------------------------------------
+# Une vraie note commence par une étiquette (exposant, ou numéro seul) ou par la loi citée.
+_NOTE_START = re.compile(
+    r"^(?:\{\{fn:\d+\}\}"
+    r"|\d{1,3}$"
+    r"|\d{1,3}\s*(?:Loi|Ordonnance|D[ée]cret|Arr[êe]t[ée]|Directive|R[èe]glement)\b"
+    r"|(?:Loi|Ordonnance|D[ée]cret|Arr[êe]t[ée])\s+N°)")
+
+
+def _split_note_block(foot: list[Ln]) -> tuple[list[Ln], list[Ln]]:
+    """(lignes à remettre dans le corps, vraies lignes de notes).
+
+    Les notes sont au BAS de la page et commencent par une étiquette. Une ligne en petite
+    police située AVANT la première étiquette est du texte normal (paragraphe secondaire,
+    liste en police réduite) : avant ce correctif elle était jetée sans aucune trace.
+    """
+    for k, ln in enumerate(foot):
+        if _NOTE_START.match(ln.text.strip()):
+            return foot[:k], foot[k:]
+    return foot, []
+
+
 def _parse_footnote_lines(foot: list[Ln]) -> dict[int, str]:
     defs: dict[int, list[str]] = {}
     cur: int | None = None
@@ -303,6 +339,12 @@ def process_page(page: pymupdf.Page, pdf_index: int, cfg: LayoutCfg, stats: DocS
 
     method = "none"
     defs: dict[int, str] = {}
+    reclaimed = 0
+    if foot:
+        back_to_body, foot = _split_note_block(foot)
+        if back_to_body:
+            reclaimed = len(back_to_body)
+            body = sorted(body + back_to_body, key=lambda l: (round(l.y0, 0), l.x0))
     if foot:
         defs = _parse_footnote_lines(foot)
         method = "geometry"
@@ -342,7 +384,7 @@ def process_page(page: pymupdf.Page, pdf_index: int, cfg: LayoutCfg, stats: DocS
     for k, ln in enumerate(body):
         ln.gap_before = 0.0 if k == 0 else ln.y0 - body[k - 1].y0
 
-    return PageData(pdf_index, printed, H, body, defs, dropped, method)
+    return PageData(pdf_index, printed, H, body, defs, dropped, method, reclaimed)
 
 
 def extract_pages(doc: pymupdf.Document, cfg: LayoutCfg, stats: DocStats | None = None,

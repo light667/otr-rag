@@ -58,7 +58,9 @@ class CleanReport:
                 lst.append(sample)
 
 
+# --------------------------------------------------------------------------
 # Caractères
+# --------------------------------------------------------------------------
 def normalize_chars(s: str, rep: CleanReport) -> str:
     s = unicodedata.normalize("NFC", s)
     for k, v in LIGATURES.items():
@@ -66,8 +68,8 @@ def normalize_chars(s: str, rep: CleanReport) -> str:
             s = s.replace(k, v)
             rep.note("ligature_fixed")
     s = s.translate(ZERO_WIDTH)
-    s = s.replace("\u00ad", "")                               
-    s = re.sub(r"[\u00a0\u202f\u2009\u2007]", " ", s)         
+    s = s.replace("\u00ad", "")                               # trait d'union conditionnel
+    s = re.sub(r"[\u00a0\u202f\u2009\u2007]", " ", s)         # espaces insécables -> espace
     s = s.replace("’", "'").replace("‘", "'").replace("ʼ", "'")
     s = re.sub(r"[ \t]+", " ", s)
     if "\ufffd" in s:
@@ -75,7 +77,9 @@ def normalize_chars(s: str, rep: CleanReport) -> str:
     return s.rstrip()
 
 
+# --------------------------------------------------------------------------
 # Jonction de deux lignes (césures)
+# --------------------------------------------------------------------------
 def join_pair(acc: str, line: str, rep: CleanReport) -> str:
     if acc.endswith("-") and len(acc) > 1 and acc[-2] != " " and (acc[-2].isalnum()):
         left = acc[:-1]
@@ -132,7 +136,9 @@ def join_block(items: list[tuple[str, str]], rep: CleanReport) -> tuple[str, lis
     return acc, held
 
 
+# --------------------------------------------------------------------------
 # Texte : corrections de fond
+# --------------------------------------------------------------------------
 def fix_text(s: str, rep: CleanReport) -> str:
     for pat, repl in KNOWN_GLUED:
         s, n = pat.subn(repl, s)
@@ -149,7 +155,9 @@ def fix_text(s: str, rep: CleanReport) -> str:
     return re.sub(r" {2,}", " ", s).strip()
 
 
+# --------------------------------------------------------------------------
 # Barème -> tableau Markdown
+# --------------------------------------------------------------------------
 def bareme_table(rows: list[str], rep: CleanReport) -> list[str]:
     def clean_num(x: str) -> str:
         return re.sub(r"\s+", " ", x).strip()
@@ -171,7 +179,9 @@ def _is_bareme(line: str) -> bool:
     return bool(BAREME_ROW.match(line) or BAREME_LAST.match(line))
 
 
+# --------------------------------------------------------------------------
 # Reflow
+# --------------------------------------------------------------------------
 def reflow(lines: list[str], p95_len: float, rep: CleanReport) -> list[str]:
     out: list[str] = []
     buf: list[tuple[str, str]] = []   # ('t'|'pg', valeur)
@@ -231,6 +241,17 @@ def reflow(lines: list[str], p95_len: float, rep: CleanReport) -> list[str]:
             bareme.append(line)
             continue
         flush_bareme()
+
+        # tableau Markdown : chaque ligne reste une ligne (avant : les lignes étaient recollées en une seule)
+        if line.startswith("|"):
+            flush_para()
+            out.extend(pending_flush())
+            if out and out[-1] != "" and not out[-1].startswith("|"):
+                out.append("")
+            out.append(line)
+            continue
+        if out and out[-1].startswith("|"):
+            out.append("")
 
         # ponctuation isolée -> collée à la ligne précédente
         if LONE_PUNCT.match(line):
@@ -300,10 +321,33 @@ def split_front_matter(md: str) -> tuple[dict, str]:
     return {}, md
 
 
+def passthrough(lines: list[str], rep: CleanReport) -> list[str]:
+    """Markdown DÉJÀ structuré (sortie LlamaParse) : les paragraphes sont entiers, les tableaux
+    déjà en Markdown. On ne recolle rien (le reflow a été conçu pour des lignes coupées par la
+    largeur du PDF) ; on garde seulement la normalisation des caractères et les corrections de texte."""
+    out: list[str] = []
+    for raw in lines:
+        line = raw.strip()
+        if not line:
+            if out and out[-1] != "":
+                out.append("")
+            continue
+        if line.startswith("|") or PAGE_MARK.fullmatch(line) or ART_MARK.fullmatch(line):
+            out.append(line)
+            continue
+        if BULLET_START.match(line) and not line.startswith("**"):
+            line = BULLET_START.sub("- ", line)
+            rep.note("bullet_normalized", raw.strip()[:40])
+        out.append(fix_text(line, rep))
+    return out
+
+
 def clean_md(raw_md: str) -> tuple[str, CleanReport, dict]:
     rep = CleanReport()
     fm, body = split_front_matter(raw_md)
     lines = [normalize_chars(l, rep) for l in body.split("\n")]
+    if fm.get("structured_markdown"):
+        return "\n".join(passthrough(lines, rep)).strip() + "\n", rep, fm
     text_lengths = [len(l) for l in lines if l and not l.startswith(("#", "<!--", "[^", "**"))]
     p95 = float(fm.get("p95_len") or (sorted(text_lengths)[int(0.95 * (len(text_lengths) - 1))] if text_lengths else 80))
     cleaned = reflow(lines, p95, rep)

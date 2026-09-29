@@ -1,3 +1,10 @@
+# Manifest des documents OTR. Chaque document a une NATURE (`doc_type`) qui décide de la
+# stratégie d'extraction et de nettoyage :
+#   code     -> texte de loi structuré (Livre/Titre/Chapitre/Section/Article), notes de bas de page
+#   rescrits -> suite de cas "R1 : titre" (question de contribuable + réponse de l'administration)
+#   generic  -> document mixte (cahiers fiscaux) : titres par taille de police + tableaux
+#
+# Réglages ci-dessous fixés à partir des rapports réels de `00_inspect.py` (23/09/2026).
 
 raw_dir: data/raw
 interim_dir: data/interim
@@ -15,7 +22,13 @@ docs:
     source_url: https://www.otr.tg/index.php/fr/impots/reglementations-fiscales/code-general-des-impots/352-code-general-des-impots-mise-a-jour-2023.html
     layout:
       drop_regex: ['^CODE G[ÉE]N[ÉE]RAL DES IMP[ÔO]TS$']
+      # Les numéros de page en bas (médiane 94%) sont déjà dans bottom_zone=0.08 (zone >= 92%).
+      # 4 numéros en haut de page se trouvent à 10% : top_zone=0.08 (zone <= 8%) les rate de peu.
       top_zone: 0.10
+      # Les 4 autres cas "hors zone" (p146 y=74%, p229 y=31%, p419 y=60%, p422 y=44%) sont trop loin
+      # de la marge pour être des numéros de page : probablement un chiffre isolé dans le corps
+      # (montant, renvoi). Impossible à corriger par la zone sans risquer de supprimer du vrai texte.
+      # -> laissés tels quels ; qa.digit_only_paragraphs les signalera après 02_clean pour vérif manuelle.
 
   - doc_id: cgi_lpf_2025
     file: CODE-GENERAL-DES-IMPOTS-ET-LIVRE-DES-PROCEDURES-FISCALES-OTR-2025.pdf
@@ -24,11 +37,16 @@ docs:
     version_year: 2025
     published: "2025-09-18"
     source_url: https://www.otr.tg/index.php/fr/impots/reglementations-fiscales/code-general-des-impots/600-code-general-des-impots-livre-des-procedures-fiscales-mis-a-jour-2025.html
+    # Un seul PDF, deux codes : la numérotation des articles repart de 1 à la page 213
+    # (Art. 644 p210 -> Art. 1 p213, titre "LPF" vu p211). Sans ce découpage, "article 17"
+    # serait ambigu (existe dans les deux codes) et le contrôle qualité verrait 22 "doublons".
     subdocs:
       - {code: CGI, first_page: 1}
       - {code: LPF, first_page: 213}
     layout:
-      top_zone: 0.10   
+      top_zone: 0.10   # même raison que cgi_2023 (numéros de page proches de 12% sur 3 pages)
+      # Pages 2-14 : sommaire (lignes à points de conduite). Sans ça, chaque titre de section
+      # apparaîtrait deux fois (une fois dans le sommaire, une fois dans le vrai contenu).
       skip_pages: [2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14]
 
   - doc_id: rescrits_2025
@@ -39,6 +57,7 @@ docs:
     modified: "2025-09-23"
     source_url: https://www.otr.tg/index.php/fr/documentation/sur-les-impots/code-general-des-impots/602-rescrits-fiscaux.html
     layout: {}
+    # Rien à régler : 2 rescrits bien détectés, aucune note, aucun sommaire.
 
   - doc_id: cahier_fiscal_2025
     file: CAHIER-FISCAL-2025.pdf
@@ -48,15 +67,33 @@ docs:
     published: "2025-01-20"
     source_url: https://www.otr.tg/index.php/fr/impots/reglementations-fiscales/code-general-des-impots.html
     layout:
+      # Ce n'est PAS un code de loi : les lignes en 12pt (préambule citant la loi de finances)
+      # sont un paragraphe normal, pas une note d'amendement. Avec footnote_enabled par défaut
+      # (True, pensé pour le CGI), ce préambule était classé à tort comme note et disparaissait
+      # du corps du texte (voir tests/test_pipeline.py::test_footnote_enabled_false_...).
       footnote_enabled: false
+      # Pied de page répété SANS espace avant le numéro de page ("…EXERCICE 20253" = texte + "3") :
+      # la détection automatique des en-têtes répétés ne le voit pas, car le texte change à
+      # chaque page. On le retire explicitement, en tolérant le numéro de page collé.
       drop_regex: ['^MESURES PHARES DE LA LOI DE FINANCES,?\s*EXERCICE\s*2025\d*$']
+    # Stratégie `generic` : titres fusionnés par bloc de même taille/gras (ex. "LES MESURES
+    # NOUVELLES / CONTENUES DANS LE CORPS / DE LA LOI" = un seul titre sur 3 lignes), sous-titres
+    # "Article N de la LOFI :" en gras. Vérifié sur les pages 1-3 ; les pages 4-10 restent à
+    # relire après une première extraction complète.
 
   - doc_id: cahier_fiscal_2026
     file: CAHIER-FISCAL-2026.pdf
     file_glob: "*cahier*2026*"
     doc_type: generic
+    ocr: llamaparse          # PDF scanné : 01b_ocr_llamaparse.py à la place de 01_extract.py
     version_year: 2026
     published: "2026-07-23"
     source_url: https://www.otr.tg/index.php/fr/impots/reglementations-fiscales/code-general-des-impots.html
     layout:
       footnote_enabled: false
+      # Vu sur l'essai des pages 1-3 : tagline et adresse du site répétées en pied de page.
+      # Les lignes 'logo:'/'photo:'/'icon:' de LlamaParse sont retirées automatiquement (ocr.py),
+      # inutile de les lister ici.
+      drop_regex: ['^FEDERER POUR BATIR$', '^www\.otr\.tg$']
+    # PDF SCANNÉ : 0 caractère natif (créé depuis Photoshop). OCR par LlamaParse, puis 02_clean et
+    # 03_chunk comme les autres.

@@ -57,9 +57,18 @@ def article_id(raw: str) -> str:
     return "1" if raw in {"premier", "1er"} else raw
 
 
-def article_sort_key(aid: str) -> tuple[int, str]:
+# Ordre légal des suffixes latins (bis, ter, quater...), PAS l'ordre alphabétique :
+# "quater" < "ter" alphabétiquement mais 171quater vient bien APRÈS 171ter dans le code.
+_LATIN_RANK = {"bis": 1, "ter": 2, "quater": 3, "quinquies": 4, "sexies": 5,
+              "septies": 6, "octies": 7, "nonies": 8, "decies": 9}
+
+
+def article_sort_key(aid: str) -> tuple[int, int, str]:
     m = re.match(r"(\d+)(.*)", aid)
-    return (int(m.group(1)), m.group(2)) if m else (10**6, aid)
+    if not m:
+        return (10**6, 0, aid)
+    suffix = m.group(2).strip("-").lower()
+    return (int(m.group(1)), _LATIN_RANK.get(suffix, 99 if suffix else 0), suffix)
 
 
 # --------------------------------------------------------------------------

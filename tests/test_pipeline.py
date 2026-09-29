@@ -119,6 +119,55 @@ def test_footnote_resolved_via_global_fallback_when_far_from_marker(tmp_path):
     assert "[^fn1]: Loi N°2022-022 du 27 décembre 2022 portant Loi de Finances" in clean
 
 
+def test_small_font_text_before_first_note_label_stays_in_body(tmp_path):
+    """Régression cgi_lpf_2025 : l'article 212 est passé de 15 937 à 29 888 caractères quand
+    on a resserré footnote_min_y, car du texte en petite police dans le bas de page était classé
+    'note' puis JETÉ (aucune étiquette de note au-dessus -> ligne perdue sans trace)."""
+    doc = pymupdf.open()
+    p = doc.new_page(width=400, height=600)
+    y = 60
+    for i in range(12):
+        p.insert_text((50, y), f"Le contribuable déclare ses revenus, ligne {i:02d}.", fontsize=12, fontname="helv")
+        y += 16
+    p.insert_text((50, 500), "Ce paragraphe secondaire est imprime en plus petit", fontsize=9, fontname="helv")
+    p.insert_text((50, 512), "et il continue sur cette seconde ligne de texte.", fontsize=9, fontname="helv")
+    p.insert_text((50, 557), "1", fontsize=5, fontname="helv")   # étiquette de la VRAIE note
+    p.insert_text((56, 560), "Loi N°2022-022 du 27 décembre 2022 portant Loi de Finances", fontsize=7, fontname="helv")
+    pdf = tmp_path / "small.pdf"
+    doc.save(str(pdf))
+    doc.close()
+
+    pages, _ = extract_pages(pymupdf.open(str(pdf)), LayoutCfg())
+    body_text = " ".join(l.text for l in pages[0].lines)
+    assert "Ce paragraphe secondaire est imprime en plus petit" in body_text
+    assert "et il continue sur cette seconde ligne de texte." in body_text
+    assert pages[0].reclaimed == 2
+    assert list(pages[0].footnotes.values()) == ["Loi N°2022-022 du 27 décembre 2022 portant Loi de Finances"]
+
+
+def test_orphan_note_keeps_its_full_text(tmp_path):
+    """Les notes sans appel détecté ne sont plus tronquées à 120 caractères : elles sont écrites
+    en entier dans <doc>.orphan_notes.json puis rattachées aux articles par page au chunking."""
+    doc = pymupdf.open()
+    p = doc.new_page(width=400, height=600)
+    p.insert_text((50, 60), "Art. 1 : Un article sans aucun appel de note.", fontsize=11, fontname="helv")
+    for i in range(10):   # le corps doit dominer en nombre de caractères (sinon body_size = taille de la note)
+        p.insert_text((50, 80 + 16 * i), f"Le contribuable déclare ses revenus, ligne {i:02d}.", fontsize=11, fontname="helv")
+    line1 = "Loi N°2019-016 du 30 décembre 2019 portant Loi de Finances, Exercice 2020,"
+    line2 = "modifiée par la loi rectificative du 15 juin 2020 (article 4 et annexe fiscale)."
+    long_note = line1 + " " + line2          # > 120 caractères, sur deux lignes de note
+    p.insert_text((50, 528), "1", fontsize=7.5, fontname="helv")
+    p.insert_text((56, 528), line1, fontsize=7.5, fontname="helv")
+    p.insert_text((56, 538), line2, fontsize=7.5, fontname="helv")
+    pdf = tmp_path / "orphan.pdf"
+    doc.save(str(pdf))
+    doc.close()
+    _, meta, *_ = run_code(str(pdf))
+    assert len(meta.orphan_footnotes) == 1
+    assert len(long_note) > 120
+    assert meta.orphan_footnotes[0]["text"] == long_note
+
+
 def test_two_digit_enumeration_is_not_mistaken_for_a_glued_footnote(tmp_path):
     """Régression : sur le CGI 2023 réel, une énumération '9- ... 10- ... 11- ...' était
     scindée à tort en 'marqueur de note 1' + '0- ...' / '1- ...'. Avec enable_glued_fallback
@@ -168,10 +217,14 @@ def test_footnote_enabled_false_keeps_small_font_text_in_body(tmp_path):
     body_text = " ".join(l.text for l in pages[0].lines)
     assert "Adoptée par la représentation nationale" in body_text
 
+    # Depuis la correction "petite police sans étiquette de note -> reste dans le corps", même avec
+    # footnote_enabled=True ce préambule n'est plus perdu. footnote_enabled=False reste une sécurité
+    # supplémentaire pour les documents narratifs (aucune note d'amendement à chercher).
     cfg_on = LayoutCfg.from_dict({"footnote_enabled": True})
     pages_on, _ = extract_pages(pymupdf.open(str(pdf)), cfg_on)
     body_text_on = " ".join(l.text for l in pages_on[0].lines)
-    assert "Adoptée par la représentation nationale" not in body_text_on  # confirme le bug sans le correctif
+    assert "Adoptée par la représentation nationale" in body_text_on
+    assert pages_on[0].footnotes == {} and pages_on[0].reclaimed == 2
 
 
 def run_generic(path, cfg_extra=None):
@@ -250,3 +303,27 @@ def test_rescrits(tmp_path):
     assert [r["id"] for r in meta.rescrits] == ["1", "2"]
     qa = qa_report(clean, "rescrits")
     assert qa["n_rescrits"] == 2 and qa["cross_refs"]["by_target"] == {"CGI": 2, "LPF": 1}
+
+
+def test_missing_space_between_adjacent_spans_is_restored(tmp_path):
+    """Régression : 'le calculde l'impôt' et 'code dutravail' trouvés dans les vrais documents -
+    un run de texte PDF adjacent au suivant sans caractère espace (espacement de justification)."""
+    doc = pymupdf.open()
+    p = doc.new_page(width=400, height=600)
+    line = "Le calcul"
+    p.insert_text((50, 60), line, fontsize=11, fontname="helv")
+    x1 = 50 + pymupdf.get_text_length(line, fontname="helv", fontsize=11)
+    # taille très légèrement différente : force deux spans PDF distincts (comme dans le vrai document
+    # Word, où deux runs adjacents sans espace proviennent de styles internes différents) ; avec la
+    # même taille exacte, PyMuPDF fusionnerait lui-même les deux insert_text en un seul span, ce qui
+    # ne reproduirait pas le bug réel.
+    p.insert_text((x1 + pymupdf.get_text_length(" ", fontname="helv", fontsize=11), 60),
+                  "de l'impôt est annuel.", fontsize=11.02, fontname="helv")
+    p.insert_text((50, 90), "Le taux de 10%", fontsize=11, fontname="helv")  # pas de faux positif sur un nombre
+    pdf = tmp_path / "gap.pdf"
+    doc.save(str(pdf))
+    doc.close()
+    pages, _ = extract_pages(pymupdf.open(str(pdf)), LayoutCfg())
+    texts = [l.text for l in pages[0].lines]
+    assert "Le calcul de l'impôt est annuel." in texts
+    assert "Le taux de 10%" in texts

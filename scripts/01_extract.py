@@ -1,3 +1,4 @@
+#!/usr/bin/env python3
 """Étape 1 - PDF -> Markdown BRUT (structure conservée, bruit de page retiré).
 
 La stratégie dépend de la nature du document (`doc_type` dans config/docs.yaml) :
@@ -26,12 +27,12 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / "src"))
 
-import pymupdf  
-import yaml  
+import pymupdf  # noqa: E402
+import yaml  # noqa: E402
 
-from otr_rag.config import load_manifest, resolve_pdf, select_docs  
-from otr_rag.layout import LayoutCfg, extract_pages, scan_document  
-from otr_rag.rawmd import BuildMeta, build_code_md, build_generic_md, build_rescrits_md  
+from otr_rag.config import load_manifest, resolve_pdf, select_docs  # noqa: E402
+from otr_rag.layout import LayoutCfg, extract_pages, scan_document  # noqa: E402
+from otr_rag.rawmd import BuildMeta, build_code_md, build_generic_md, build_rescrits_md  # noqa: E402
 
 
 def front_matter(entry: dict, code: str | None, pdf_name: str, first: int, last: int, stats) -> str:
@@ -62,10 +63,20 @@ def extract_entry(entry: dict, manifest: dict) -> None:
     cfg = LayoutCfg.from_dict(entry.get("layout"))
     n = len(doc)
 
+    # PDF scanné (aucun texte natif) : ce pipeline ne fait pas d'OCR -> on l'écarte proprement
+    # au lieu de produire un .md vide qui passerait ensuite pour un document sans contenu.
+    sample = [len(doc[i].get_text().strip()) for i in range(min(n, 30))]
+    avg_chars = sum(sample) / max(1, len(sample))
+    if avg_chars < 100:
+        print(f"\n=== {entry['doc_id']} ({pdf.name}, {n} pages) : ⚠ PDF SANS TEXTE NATIF "
+              f"({avg_chars:.0f} car./page) - ignoré. OCR requis : python scripts/01b_ocr_llamaparse.py")
+        return
+
     stats = scan_document(doc, cfg)
     print(f"\n=== {entry['doc_id']} ({pdf.name}, {n} pages) - stratégie : {entry['doc_type']}")
     print(f"    corps {stats.body_size} pt ; en-têtes répétés retirés : {sorted(stats.repeated) or 'aucun'}")
 
+    # découpage en sous-documents (ex. CGI + LPF dans un même PDF)
     subdocs = entry.get("subdocs") or [{"code": entry.get("code"), "first_page": 1}]
     subdocs = [s for s in subdocs if s.get("first_page")]
     bounds = []
@@ -92,11 +103,19 @@ def extract_entry(entry: dict, manifest: dict) -> None:
         (out_dir / f"{stem}.raw.md").write_text(
             front_matter(entry, code, pdf.name, first, last, stats) + body, encoding="utf-8")
 
+        reclaimed = sum(p.reclaimed for p in pages)
+        # TOUTES les notes sans appel détecté, texte complet : le chunking les rattache aux
+        # articles par numéro de page (rien n'est jeté, l'appariement exact est simplement inconnu).
+        (out_dir / f"{stem}.orphan_notes.json").write_text(
+            json.dumps(meta.orphan_footnotes, ensure_ascii=False, indent=1), encoding="utf-8")
+
         methods = Counter(p.footnote_method for p in pages)
         dropped = Counter(reason for p in pages for reason, _ in p.dropped)
         report = {
             "stem": stem, "pdf_pages": [first, last], "n_pages_processed": len(pages),
             "footnote_detection": dict(methods), "dropped_lines": dict(dropped),
+            "small_font_lines_returned_to_body": reclaimed,
+            "n_orphan_notes": len(meta.orphan_footnotes),
             "n_headings": len(meta.headings),
             "headings_by_kind": dict(Counter(h["kind"] for h in meta.headings)),
             "n_articles": len(meta.articles), "n_rescrits": len(meta.rescrits),
@@ -113,8 +132,12 @@ def extract_entry(entry: dict, manifest: dict) -> None:
         print(f"    retiré des pages : {report['dropped_lines'] or 'rien'} ; notes de bas de page : {report['footnote_detection']}")
         if meta.unresolved_markers:
             print(f"    ⚠ {len(meta.unresolved_markers)} appels de note sans note correspondante")
+        if reclaimed:
+            print(f"    ↩ {reclaimed} lignes en petite police remises dans le corps "
+                  "(pas de vraie note : aucune étiquette au-dessus)")
         if meta.orphan_footnotes:
-            print(f"    ⚠ {len(meta.orphan_footnotes)} notes sans appel dans le texte")
+            print(f"    ⚠ {len(meta.orphan_footnotes)} notes sans appel dans le texte "
+                  f"-> conservées dans {stem}.orphan_notes.json")
         for wmsg in meta.warnings[:5]:
             print(f"    ⚠ {wmsg}")
         if len(meta.warnings) > 5:

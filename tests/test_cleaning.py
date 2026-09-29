@@ -72,3 +72,20 @@ def test_clean_md_keeps_front_matter_p95():
     md = "---\ndoc_id: x\np95_len: 40\n---\nUne ligne.\n"
     clean, rep, fm = clean_md(md)
     assert fm["doc_id"] == "x" and clean.strip() == "Une ligne."
+
+
+def test_reflow_keeps_markdown_table_rows_on_separate_lines():
+    """Régression : les lignes '| a | b |' étaient recollées en UNE ligne comme du texte courant."""
+    lines = ["Le barème est :", "| Tranche | Taux |", "| --- | --- |", "| 0 à 900 000 | exonéré |",
+             "| 900 001 à 3 000 000 | 3% |", "Fin du texte."]
+    out = [l for l in reflow(lines, 40, R()) if l]
+    assert out == ["Le barème est :", "| Tranche | Taux |", "| --- | --- |", "| 0 à 900 000 | exonéré |",
+                   "| 900 001 à 3 000 000 | 3% |", "Fin du texte."]
+
+
+def test_structured_markdown_mode_does_not_reflow():
+    md = ("---\ndoc_id: x\nstructured_markdown: true\n---\n"
+          "<!--pg:1-->\n\n# Titre\n\nPremière phrase.\nSeconde phrase du même bloc.\n\n• puce ℓ\n\n| a | b |\n| --- | --- |\n| 1 | 2 |\n")
+    clean, rep, fm = clean_md(md)
+    assert "Première phrase.\nSeconde phrase du même bloc." in clean       # lignes NON recollées
+    assert "- puce" in clean and "| 1 | 2 |" in clean and "<!--pg:1-->" in clean

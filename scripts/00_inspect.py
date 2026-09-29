@@ -13,7 +13,7 @@ Usage :
     python scripts/00_inspect.py                       # tous les documents du manifest
     python scripts/00_inspect.py --doc cgi_2023        # un seul
     python scripts/00_inspect.py --doc cgi_2023 --dump 1,12   # + liste des lignes des pages 1 et 12
-Le rapport est écrit dans data/inspect/<doc_id>.md : colle-le moi tel quel.
+Le rapport est écrit dans data/inspect/<doc_id>.md
 """
 from __future__ import annotations
 
