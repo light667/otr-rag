@@ -1,4 +1,3 @@
-#!/usr/bin/env python3
 """Étape 3 - Markdown propre -> chunks (JSONL) + rapport.
 
 Entrées (data/interim/) : <stem>.clean.md, et si présents <stem>.extract.json (pages imprimées)
@@ -21,9 +20,9 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / "src"))
 
-from otr_rag.chunking import chunk_document  # noqa: E402
-from otr_rag.cleaning import split_front_matter  # noqa: E402
-from otr_rag.config import load_manifest  # noqa: E402
+from otr_rag.chunking import chunk_document  
+from otr_rag.cleaning import split_front_matter  
+from otr_rag.config import load_manifest  
 
 
 def main() -> None:

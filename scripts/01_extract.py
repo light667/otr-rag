@@ -1,4 +1,3 @@
-#!/usr/bin/env python3
 """Étape 1 - PDF -> Markdown BRUT (structure conservée, bruit de page retiré).
 
 La stratégie dépend de la nature du document (`doc_type` dans config/docs.yaml) :
@@ -27,12 +26,12 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / "src"))
 
-import pymupdf  # noqa: E402
-import yaml  # noqa: E402
+import pymupdf  
+import yaml  
 
-from otr_rag.config import load_manifest, resolve_pdf, select_docs  # noqa: E402
-from otr_rag.layout import LayoutCfg, extract_pages, scan_document  # noqa: E402
-from otr_rag.rawmd import BuildMeta, build_code_md, build_generic_md, build_rescrits_md  # noqa: E402
+from otr_rag.config import load_manifest, resolve_pdf, select_docs  
+from otr_rag.layout import LayoutCfg, extract_pages, scan_document  
+from otr_rag.rawmd import BuildMeta, build_code_md, build_generic_md, build_rescrits_md  
 
 
 def front_matter(entry: dict, code: str | None, pdf_name: str, first: int, last: int, stats) -> str:
@@ -63,7 +62,7 @@ def extract_entry(entry: dict, manifest: dict) -> None:
     cfg = LayoutCfg.from_dict(entry.get("layout"))
     n = len(doc)
 
-    # PDF scanné (aucun texte natif) : ce pipeline ne fait pas d'OCR -> on l'écarte proprement
+    # PDF scanné (aucun texte natif) : ce pipeline ne fait pas d'OCR
     # au lieu de produire un .md vide qui passerait ensuite pour un document sans contenu.
     sample = [len(doc[i].get_text().strip()) for i in range(min(n, 30))]
     avg_chars = sum(sample) / max(1, len(sample))

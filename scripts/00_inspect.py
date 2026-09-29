@@ -1,4 +1,3 @@
-
 """Étape 0 - Diagnostic de chaque PDF, AVANT extraction.
 
 Il répond aux questions dont dépendent les réglages de 01_extract :

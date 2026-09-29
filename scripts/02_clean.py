@@ -1,4 +1,3 @@
-#!/usr/bin/env python3
 """Étape 2 - Markdown brut -> Markdown propre + rapport de contrôle qualité.
 
 Remet les lignes en paragraphes, gère les césures, retire les artefacts observés,
@@ -25,8 +24,8 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / "src"))
 
-from otr_rag.cleaning import clean_md, qa_report, split_front_matter  # noqa: E402
-from otr_rag.config import load_manifest  # noqa: E402
+from otr_rag.cleaning import clean_md, qa_report, split_front_matter  
+from otr_rag.config import load_manifest  
 
 
 def show_articles(raw_body: str, clean_body: str, k: int) -> None:

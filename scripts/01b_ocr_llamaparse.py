@@ -1,14 +1,12 @@
-#!/usr/bin/env python3
 """Étape 1b - PDF SCANNÉ -> Markdown brut, via LlamaParse (à la place de 01_extract).
 
 Traite les documents marqués `ocr: llamaparse` dans config/docs.yaml. Produit
 data/interim/<doc_id>.raw.md, puis on enchaîne comme d'habitude : 02_clean.py, 03_chunk.py.
 
 Clé API : variable d'environnement LLAMA_CLOUD_API_KEY, ou fichier .env à la racine du projet
-(ne la colle jamais dans un fichier versionné ni dans un chat).
 
 Usage :
-    python scripts/01b_ocr_llamaparse.py --first 3     # ESSAI : 3 premières pages seulement (peu coûteux)
+    python scripts/01b_ocr_llamaparse.py --first 3     
     python scripts/01b_ocr_llamaparse.py               # document complet
     python scripts/01b_ocr_llamaparse.py --force       # ré-interroge l'API (sinon le résultat en cache est réutilisé)
     python scripts/01b_ocr_llamaparse.py --tier cost_effective
@@ -25,10 +23,10 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / "src"))
 
-import pymupdf  # noqa: E402
+import pymupdf 
 
-from otr_rag.config import load_manifest, resolve_pdf  # noqa: E402
-from otr_rag.ocr import build_raw_md, figures_report, load_env, parse_pdf  # noqa: E402
+from otr_rag.config import load_manifest, resolve_pdf 
+from otr_rag.ocr import build_raw_md, figures_report, load_env, parse_pdf 
 
 
 def main() -> None:
